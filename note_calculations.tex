@@ -1,0 +1,62 @@
+\documentclass{article}
+
+\begin{document}
+
+This short document describes the mathematics that the source code currently
+implements. This code effectively implements a gaussian transform from some
+gaussian coefficients to real space grid and vis versa. The two transforms are
+described by
+\begin{equation}
+\label{eq:integrate}
+V^{c}_{\alpha\beta\gamma} = \int V({\bf r}) (x - x_{c})^\alpha(y - y_{c})^\beta(z - z_{c})^\gamma e^{-\mu_{c} ({\bf r} - {\bf r}_{c})^2},
+\end{equation}
+and
+\begin{equation}
+\label{eq:collocate}
+V({\bf r}) = \sum_{ij} \sum_{\alpha\beta\gamma} (x - x_{c})^\alpha(y - y_{c})^\beta(z - z_{c})^\gamma e^{-\mu_{c} ({\bf r} - {\bf r}_{c})^2},
+\end{equation}
+where ${\bf r}_{c}$ is the center of the gaussian, $\alpha,\beta,\gamma$ are
+positive integers with $\alpha+\beta+\gamma \leq l$ and $l$ is an integer
+describing the angular momentum.
+
+Eq.\ref{eq:collocate} is implemented in the
+$\mathtt{collocate\_original\_standalone.cu}$ and Eq.\ref{eq:integrate} in the
+$\mathtt{integrate\_original\_standalone.cu}$. The original code implements the
+formulas directly and distinguish between rectangular and generic lattices
+(orthogonal lattice vectors vs generic lattice vectors) but we know it is
+possible to implement these formulas using some tensor contraction or
+matrix-matrix multiplications.
+
+A second step is required to transform the coefficients
+$V^{ij}_{\alpha\beta\gamma}$ back to the form used by cp2k for the computations.
+
+The integral Eq.\ref{eq:integrate} converges exponentially and is effectively
+restricted to an integral over a sphere of given radius to reduce computation
+time. It is also possible to exploit the lattice properties such as
+orthorhombicity. When the lattice vectors are orthogonal, the integral can be
+expressed as a tensor reduction of the form
+\begin{equation}
+  \label{decomposition::tensor}
+  V_{\alpha\beta\gamma} = \sum_{ijk} P^{i}_{\alpha} P^{j}_{\beta} P^{k}_{\gamma} V_{ijk} E_{ijk}
+\end{equation}
+where $P^{i}_{\alpha} = (x_i - x_c)^\alpha$, $P^{j}_{\beta} = (y_j -
+y_c)^\beta$, and $P^{k}_{\gamma} = (z_k - z_c)^\gamma$ are matrices with
+$x_i,y_j,z_k$ discrete lattice coordinates and $x_c,y_c, z_c$ the
+coordinates of the gaussian center. The tensor $E_{ijk}$ is given by
+$$E_{ijk} = \exp\left[ - ({\bf r}_{ijk} - {\bf r}_c)^2\right].$$
+
+We can use the properties of the exponential $$\exp(-\left( a-b \right)^2) =
+\exp\left( -a^2\right) \exp\left( -b^2\right) \exp \left( 2 ab \right)$$ to
+calculate $E_{ijk}$ efficiently provided that we express all coordinates in the
+lattice vector basis instead of the cartesian basis. In both cases, the number
+of exponentials to be computed is $n + m + o$ where $n,m,o$ are the dimensions
+of the discrete cude containing the ball of radius $r_{\textrm{cut}}$ for the
+orthorhombic case and $n (m + o) + m o$ for the general cases. It is
+particularly important when the implementation runs on CPU less so on GPU.
+
+the goal is to optimize the implementations of Eq.\ref{eq:integrate} and
+Eq.\ref{eq:collocate}.
+
+
+
+\end{document}
